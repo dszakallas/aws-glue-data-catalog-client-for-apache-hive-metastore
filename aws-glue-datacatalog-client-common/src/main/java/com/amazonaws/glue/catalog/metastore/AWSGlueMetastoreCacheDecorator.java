@@ -1,5 +1,6 @@
 package com.amazonaws.glue.catalog.metastore;
 
+import com.amazonaws.glue.catalog.util.ConfMap;
 import com.amazonaws.services.glue.model.Database;
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.Table;
@@ -7,7 +8,6 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.log4j.Logger;
 
 import static com.amazonaws.glue.catalog.util.AWSGlueConfig.AWS_GLUE_DB_CACHE_ENABLE;
@@ -27,7 +27,7 @@ public class AWSGlueMetastoreCacheDecorator extends AWSGlueMetastoreBaseDecorato
 
     private static final Logger logger = Logger.getLogger(AWSGlueMetastoreCacheDecorator.class);
 
-    private final HiveConf conf;
+    private final ConfMap conf;
 
     private final boolean databaseCacheEnabled;
 
@@ -38,7 +38,7 @@ public class AWSGlueMetastoreCacheDecorator extends AWSGlueMetastoreBaseDecorato
     @VisibleForTesting
     protected Cache<TableIdentifier, Table> tableCache;
 
-    public AWSGlueMetastoreCacheDecorator(HiveConf conf, AWSGlueMetastore awsGlueMetastore) {
+    public AWSGlueMetastoreCacheDecorator(ConfMap conf, AWSGlueMetastore awsGlueMetastore) {
         super(awsGlueMetastore);
 
         checkNotNull(conf, "conf can not be null");

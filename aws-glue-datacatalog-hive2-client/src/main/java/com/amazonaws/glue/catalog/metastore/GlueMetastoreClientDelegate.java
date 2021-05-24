@@ -4,10 +4,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.glue.catalog.converters.CatalogToHiveConverter;
 import com.amazonaws.glue.catalog.converters.GlueInputConverter;
 import com.amazonaws.glue.catalog.converters.HiveToCatalogConverter;
-import com.amazonaws.glue.catalog.util.BatchCreatePartitionsHelper;
-import com.amazonaws.glue.catalog.util.ExpressionHelper;
-import com.amazonaws.glue.catalog.util.MetastoreClientUtils;
-import com.amazonaws.glue.catalog.util.PartitionKey;
+import com.amazonaws.glue.catalog.util.*;
 import com.amazonaws.glue.shims.AwsGlueHiveShims;
 import com.amazonaws.glue.shims.ShimsLoader;
 import com.amazonaws.services.glue.model.Column;
@@ -119,41 +116,38 @@ public class GlueMetastoreClientDelegate {
 
   public static final String CUSTOM_EXECUTOR_FACTORY_CONF = "hive.metastore.executorservice.factory.class";
 
-  static final String GLUE_METASTORE_DELEGATE_THREADPOOL_NAME_FORMAT = "glue-metastore-delegate-%d";
-
   private final ExecutorService executorService;
   private final AWSGlueMetastore glueMetastore;
-  private final HiveConf conf;
+  private final HiveConf hiveConf;
   private final Warehouse wh;
   private final AwsGlueHiveShims hiveShims = ShimsLoader.getHiveShims();
   private final String catalogId;
 
-  public static final String CATALOG_ID_CONF = "hive.metastore.glue.catalogid";
   public static final String NUM_PARTITION_SEGMENTS_CONF = "aws.glue.partition.num.segments";
 
   protected ExecutorService getExecutorService() {
-    Class<? extends ExecutorServiceFactory> executorFactoryClass = this.conf
+    Class<? extends ExecutorServiceFactory> executorFactoryClass = this.hiveConf
             .getClass(CUSTOM_EXECUTOR_FACTORY_CONF,
                     DefaultExecutorServiceFactory.class).asSubclass(
                     ExecutorServiceFactory.class);
     ExecutorServiceFactory factory = ReflectionUtils.newInstance(
-            executorFactoryClass, conf);
-    return factory.getExecutorService(conf);
+            executorFactoryClass, null);
+    return factory.getExecutorService(new ConfMap());
   }
 
-  public GlueMetastoreClientDelegate(HiveConf conf, AWSGlueMetastore glueMetastore,
+  public GlueMetastoreClientDelegate(HiveConf hiveConf, AWSGlueMetastore glueMetastore,
                                      Warehouse wh) throws MetaException {
-    checkNotNull(conf, "Hive Config cannot be null");
+    checkNotNull(hiveConf, "Hive Config cannot be null");
     checkNotNull(glueMetastore, "glueMetastore cannot be null");
     checkNotNull(wh, "Warehouse cannot be null");
 
-    this.conf = conf;
+    this.hiveConf = hiveConf;
     this.glueMetastore = glueMetastore;
     this.wh = wh;
     this.executorService = getExecutorService();
 
     // TODO - May be validate catalogId confirms to AWS AccountId too.
-    catalogId = MetastoreClientUtils.getCatalogId(conf);
+    catalogId = MetastoreClientUtils.getCatalogId(hiveConf);
   }
 
   // ======================= Database =======================
@@ -424,7 +418,7 @@ public class GlueMetastoreClientDelegate {
       throw new UnsupportedOperationException("Table rename is not supported");
     }
 
-    validateTableObject(newTable, conf);
+    validateTableObject(newTable, hiveConf);
     if (!tableExists(dbName, oldTableName)) {
       throw new UnknownTableException("Table: " + oldTableName + " does not exists");
     }
@@ -438,7 +432,7 @@ public class GlueMetastoreClientDelegate {
       newTable.setTableType(MANAGED_TABLE.toString());
     }
 
-    if (hiveShims.requireCalStats(conf, null, null, newTable, environmentContext) && newTable.getPartitionKeys().isEmpty()) {
+    if (hiveShims.requireCalStats(hiveConf, null, null, newTable, environmentContext) && newTable.getPartitionKeys().isEmpty()) {
       //update table stats for non-partition Table
       org.apache.hadoop.hive.metastore.api.Database db = getDatabase(newTable.getDbName());
       hiveShims.updateTableStatsFast(db, newTable, wh, false, true, environmentContext);
@@ -538,7 +532,7 @@ public class GlueMetastoreClientDelegate {
     if (tableExists(tbl.getDbName(), tbl.getTableName())) {
       throw new AlreadyExistsException("Table " + tbl.getTableName() + " already exists.");
     }
-    validateTableObject(tbl, conf);
+    validateTableObject(tbl, hiveConf);
 
     if (TableType.VIRTUAL_VIEW.toString().equals(tbl.getTableType())) {
       // we don't need to create directory for virtual views

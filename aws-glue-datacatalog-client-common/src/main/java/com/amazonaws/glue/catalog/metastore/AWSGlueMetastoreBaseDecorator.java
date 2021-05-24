@@ -10,7 +10,6 @@ import com.amazonaws.services.glue.model.Table;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UserDefinedFunction;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
-import org.apache.thrift.TException;
 
 import java.util.List;
 
@@ -66,6 +65,11 @@ public class AWSGlueMetastoreBaseDecorator implements AWSGlueMetastore {
     }
 
     @Override
+    public List<Table> getTables(String dbname) {
+        return awsGlueMetastore.getTables(dbname);
+    }
+
+    @Override
     public void updateTable(String dbName, TableInput tableInput) {
         awsGlueMetastore.updateTable(dbName, tableInput);
     }
@@ -86,7 +90,7 @@ public class AWSGlueMetastoreBaseDecorator implements AWSGlueMetastore {
     }
 
     @Override
-    public List<Partition> getPartitions(String dbName, String tableName, String expression, long max) throws TException {
+    public List<Partition> getPartitions(String dbName, String tableName, String expression, long max) {
         return awsGlueMetastore.getPartitions(dbName, tableName, expression, max);
     }
 

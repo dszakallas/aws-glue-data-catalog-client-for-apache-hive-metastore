@@ -1,7 +1,7 @@
 package com.amazonaws.glue.catalog.metastore;
 
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.glue.catalog.util.MetastoreClientUtils;
+import com.amazonaws.glue.catalog.util.ConfMap;
 import com.amazonaws.services.glue.AWSGlue;
 import com.amazonaws.services.glue.model.BatchCreatePartitionRequest;
 import com.amazonaws.services.glue.model.BatchGetPartitionRequest;
@@ -44,9 +44,7 @@ import com.amazonaws.services.glue.model.UserDefinedFunction;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
-import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -77,33 +75,33 @@ public class DefaultAWSGlueMetastore implements AWSGlueMetastore {
      */
     public static final int MAX_NUM_PARTITION_SEGMENTS = 10;
     public static final String NUM_PARTITION_SEGMENTS_CONF = "aws.glue.partition.num.segments";
+    public static final String CATALOG_ID = "aws.glue.catalog.id";
     public static final String CUSTOM_EXECUTOR_FACTORY_CONF = "hive.metastore.executorservice.factory.class";
 
-    private final HiveConf conf;
+    private final ConfMap conf;
     private final AWSGlue glueClient;
     private final String catalogId;
     private final ExecutorService executorService;
     private final int numPartitionSegments;
 
-    protected ExecutorService getExecutorService(HiveConf hiveConf) {
-        Class<? extends ExecutorServiceFactory> executorFactoryClass = hiveConf
+    protected ExecutorService getExecutorService(ConfMap confMap) {
+        Class<? extends ExecutorServiceFactory> executorFactoryClass = confMap
                 .getClass(CUSTOM_EXECUTOR_FACTORY_CONF,
                         DefaultExecutorServiceFactory.class).asSubclass(
                         ExecutorServiceFactory.class);
-        ExecutorServiceFactory factory = ReflectionUtils.newInstance(
-                executorFactoryClass, hiveConf);
-        return factory.getExecutorService(hiveConf);
+        ExecutorServiceFactory factory = ReflectionUtils.newInstance(executorFactoryClass, null);
+        return factory.getExecutorService(confMap);
     }
 
-    public DefaultAWSGlueMetastore(HiveConf conf, AWSGlue glueClient) {
-        checkNotNull(conf, "Hive Config cannot be null");
+    public DefaultAWSGlueMetastore(ConfMap conf, AWSGlue glueClient) {
+        checkNotNull(conf, "ConfMap cannot be null");
         checkNotNull(glueClient, "glueClient cannot be null");
         this.numPartitionSegments = conf.getInt(NUM_PARTITION_SEGMENTS_CONF, DEFAULT_NUM_PARTITION_SEGMENTS);
         checkArgument(numPartitionSegments <= MAX_NUM_PARTITION_SEGMENTS,
                 String.format("Hive Config [%s] can't exceed %d", NUM_PARTITION_SEGMENTS_CONF, MAX_NUM_PARTITION_SEGMENTS));
         this.conf = conf;
         this.glueClient = glueClient;
-        this.catalogId = MetastoreClientUtils.getCatalogId(conf);
+        this.catalogId = conf.get(CATALOG_ID);
         this.executorService = getExecutorService(conf);
     }
 
@@ -183,6 +181,20 @@ public class DefaultAWSGlueMetastore implements AWSGlueMetastore {
     }
 
     @Override
+    public List<Table> getTables(String dbname) {
+        List<Table> ret = new ArrayList<>();
+        String nextToken = null;
+        do {
+            GetTablesRequest getTablesRequest = new GetTablesRequest().withDatabaseName(dbname)
+                    .withNextToken(nextToken).withCatalogId(catalogId);
+            GetTablesResult result = glueClient.getTables(getTablesRequest);
+            ret.addAll(result.getTableList());
+            nextToken = result.getNextToken();
+        } while (nextToken != null);
+        return ret;
+    }
+
+    @Override
     public void updateTable(String dbName, TableInput tableInput) {
         UpdateTableRequest updateTableRequest = new UpdateTableRequest().withDatabaseName(dbName)
                 .withTableInput(tableInput).withCatalogId(catalogId);
@@ -246,7 +258,7 @@ public class DefaultAWSGlueMetastore implements AWSGlueMetastore {
 
     @Override
     public List<Partition> getPartitions(String dbName, String tableName, String expression,
-                                         long max) throws TException {
+                                         long max) {
         if (max == 0) {
             return Collections.emptyList();
         }
@@ -262,7 +274,7 @@ public class DefaultAWSGlueMetastore implements AWSGlueMetastore {
             final String databaseName,
             final String tableName,
             final String expression,
-            final long max) throws TException {
+            final long max) {
         // Prepare the segments
         List<Segment> segments = Lists.newArrayList();
         for (int i = 0; i < numPartitionSegments; i++) {

@@ -1,8 +1,6 @@
-package com.amazonaws.glue.catalog.convertors;
+package com.amazonaws.glue.catalog.converters;
 
-import com.amazonaws.glue.catalog.converters.HiveToCatalogConverter;
 import com.amazonaws.glue.catalog.util.TestObjects;
-import com.amazonaws.glue.catalog.converters.CatalogToHiveConverter;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.Database;
 import com.amazonaws.services.glue.model.Order;

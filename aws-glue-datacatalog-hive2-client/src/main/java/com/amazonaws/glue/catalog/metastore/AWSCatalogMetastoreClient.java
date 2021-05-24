@@ -4,10 +4,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.glue.catalog.converters.CatalogToHiveConverter;
 import com.amazonaws.glue.catalog.converters.HiveToCatalogConverter;
 import com.amazonaws.glue.catalog.converters.GlueInputConverter;
-import com.amazonaws.glue.catalog.util.BatchDeletePartitionsHelper;
-import com.amazonaws.glue.catalog.util.ExpressionHelper;
-import com.amazonaws.glue.catalog.util.LoggingHelper;
-import com.amazonaws.glue.catalog.util.MetastoreClientUtils;
+import com.amazonaws.glue.catalog.util.*;
 import com.amazonaws.glue.shims.AwsGlueHiveShims;
 import com.amazonaws.glue.shims.ShimsLoader;
 import com.amazonaws.services.glue.AWSGlue;
@@ -40,54 +37,7 @@ import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.PartitionDropOptions;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
-import org.apache.hadoop.hive.metastore.api.AggrStats;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
-import org.apache.hadoop.hive.metastore.api.CompactionType;
-import org.apache.hadoop.hive.metastore.api.ConfigValSecurityException;
-import org.apache.hadoop.hive.metastore.api.CurrentNotificationEventId;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.FireEventRequest;
-import org.apache.hadoop.hive.metastore.api.FireEventResponse;
-import org.apache.hadoop.hive.metastore.api.ForeignKeysRequest;
-import org.apache.hadoop.hive.metastore.api.GetAllFunctionsResponse;
-import org.apache.hadoop.hive.metastore.api.GetOpenTxnsInfoResponse;
-import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
-import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
-import org.apache.hadoop.hive.metastore.api.HeartbeatTxnRangeResponse;
-import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
-import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
-import org.apache.hadoop.hive.metastore.api.HiveObjectType;
-import org.apache.hadoop.hive.metastore.api.Index;
-import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
-import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
-import org.apache.hadoop.hive.metastore.api.InvalidPartitionException;
-import org.apache.hadoop.hive.metastore.api.LockRequest;
-import org.apache.hadoop.hive.metastore.api.LockResponse;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.MetadataPpdResult;
-import org.apache.hadoop.hive.metastore.api.NoSuchLockException;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
-import org.apache.hadoop.hive.metastore.api.NoSuchTxnException;
-import org.apache.hadoop.hive.metastore.api.NotificationEventResponse;
-import org.apache.hadoop.hive.metastore.api.OpenTxnsResponse;
-import org.apache.hadoop.hive.metastore.api.PartitionEventType;
-import org.apache.hadoop.hive.metastore.api.PrimaryKeysRequest;
-import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
-import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
-import org.apache.hadoop.hive.metastore.api.ShowCompactResponse;
-import org.apache.hadoop.hive.metastore.api.ShowLocksRequest;
-import org.apache.hadoop.hive.metastore.api.ShowLocksResponse;
-import org.apache.hadoop.hive.metastore.api.TableMeta;
-import org.apache.hadoop.hive.metastore.api.TxnAbortedException;
-import org.apache.hadoop.hive.metastore.api.TxnOpenException;
-import org.apache.hadoop.hive.metastore.api.UnknownDBException;
-import org.apache.hadoop.hive.metastore.api.UnknownPartitionException;
-import org.apache.hadoop.hive.metastore.api.UnknownTableException;
-import org.apache.hadoop.hive.metastore.api.hive_metastoreConstants;
-import org.apache.hadoop.hive.metastore.api.CompactionResponse;
+import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
@@ -119,7 +69,8 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   // TODO "hook" into Hive logging (hive or hive.metastore)
   private static final Logger logger = Logger.getLogger(AWSCatalogMetastoreClient.class);
 
-  private final HiveConf conf;
+  private final HiveConf hiveConf;
+  private final ConfMap conf;
   private final AWSGlue glueClient;
   private final Warehouse wh;
   private final GlueMetastoreClientDelegate glueMetastoreClientDelegate;
@@ -139,14 +90,15 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   private final AwsGlueHiveShims hiveShims = ShimsLoader.getHiveShims();
 
   public AWSCatalogMetastoreClient(HiveConf conf, HiveMetaHookLoader hook) throws MetaException {
-    this.conf = conf;
+    this.hiveConf = conf;
+    this.conf = MetastoreClientUtils.getAwsGlueConf(conf);
     glueClient = new AWSGlueClientFactory(this.conf).newClient();
 
     // TODO preserve existing functionality for HiveMetaHook
-    wh = new Warehouse(this.conf);
+    wh = new Warehouse(this.hiveConf);
 
-    AWSGlueMetastore glueMetastore = new AWSGlueMetastoreFactory().newMetastore(conf);
-    glueMetastoreClientDelegate = new GlueMetastoreClientDelegate(this.conf, glueMetastore, wh);
+    AWSGlueMetastore glueMetastore = new AWSGlueMetastoreFactory().newMetastore(this.conf);
+    glueMetastoreClientDelegate = new GlueMetastoreClientDelegate(this.hiveConf, glueMetastore, wh);
 
     snapshotActiveConf();
     catalogId = MetastoreClientUtils.getCatalogId(conf);
@@ -160,19 +112,19 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
    */
   public static class Builder {
 
-    private HiveConf conf;
+    private HiveConf hiveConf;
     private Warehouse wh;
-    private GlueClientFactory clientFactory;
+    private AWSGlueClientFactory clientFactory;
     private AWSGlueMetastoreFactory metastoreFactory;
     private boolean createDefaults = true;
     private String catalogId;
 
     public Builder withHiveConf(HiveConf conf) {
-      this.conf = conf;
+      this.hiveConf = conf;
       return this;
     }
 
-    public Builder withClientFactory(GlueClientFactory clientFactory) {
+    public Builder withClientFactory(AWSGlueClientFactory clientFactory) {
       this.clientFactory = clientFactory;
       return this;
     }
@@ -203,12 +155,12 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   }
 
   private AWSCatalogMetastoreClient(Builder builder) throws MetaException {
-    conf = Objects.firstNonNull(builder.conf, new HiveConf());
+    hiveConf = Objects.firstNonNull(builder.hiveConf, new HiveConf());
 
     if (builder.wh != null) {
       this.wh = builder.wh;
     } else {
-      this.wh = new Warehouse(conf);
+      this.wh = new Warehouse(hiveConf);
     }
     
     if (builder.catalogId != null) {
@@ -217,13 +169,15 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
     	this.catalogId = null;
     }
 
+    this.conf = MetastoreClientUtils.getAwsGlueConf(hiveConf);
+
     GlueClientFactory clientFactory = Objects.firstNonNull(builder.clientFactory, new AWSGlueClientFactory(conf));
     AWSGlueMetastoreFactory metastoreFactory = Objects.firstNonNull(builder.metastoreFactory,
             new AWSGlueMetastoreFactory());
 
     glueClient = clientFactory.newClient();
     AWSGlueMetastore glueMetastore = metastoreFactory.newMetastore(conf);
-    glueMetastoreClientDelegate = new GlueMetastoreClientDelegate(this.conf, glueMetastore, wh);
+    glueMetastoreClientDelegate = new GlueMetastoreClientDelegate(this.hiveConf, glueMetastore, wh);
 
     /**
      * It seems weird to create databases as part of client construction. This
@@ -940,7 +894,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
       throw new ConfigValSecurityException("For security reasons, the config key " + name + " cannot be accessed");
     }
 
-    return conf.get(name, defaultValue);
+    return hiveConf.get(name, defaultValue);
   }
 
   @Override
@@ -1015,7 +969,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
     if (metaConfVar == null) {
       throw new MetaException("Invalid configuration key " + key);
     }
-    return conf.get(key, metaConfVar.getDefaultValue());
+    return hiveConf.get(key, metaConfVar.getDefaultValue());
   }
 
   @Override
@@ -1189,7 +1143,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   @Override
   public void setHiveAddedJars(String addedJars) {
     //taken from HiveMetaStoreClient
-    HiveConf.setVar(conf, ConfVars.HIVEADDEDJARS, addedJars);
+    HiveConf.setVar(hiveConf, ConfVars.HIVEADDEDJARS, addedJars);
   }
 
   @Override
@@ -1200,7 +1154,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   private void snapshotActiveConf() {
     currentMetaVars = new HashMap<String, String>(HiveConf.metaVars.length);
     for (ConfVars oneVar : HiveConf.metaVars) {
-      currentMetaVars.put(oneVar.varname, conf.get(oneVar.varname, ""));
+      currentMetaVars.put(oneVar.varname, hiveConf.get(oneVar.varname, ""));
     }
   }
 
@@ -1248,6 +1202,12 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
                                          List<String> values, short max)
         throws MetaException, TException, NoSuchObjectException {
     return glueMetastoreClientDelegate.listPartitionNames(databaseName, tableName, values, max);
+  }
+
+  @Override
+  public PartitionValuesResponse listPartitionValues(PartitionValuesRequest partitionValuesRequest) throws MetaException, TException, NoSuchObjectException {
+    // FIXME: implement
+    throw new MetaException("Unsupported");
   }
 
   @Override
@@ -1570,7 +1530,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
     if (validate != null) {
       throw new MetaException("Invalid configuration value " + value + " for key " + key + " by " + validate);
     }
-    conf.set(key, value);
+    hiveConf.set(key, value);
   }
 
   @Override
@@ -1612,7 +1572,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   @Override
   public boolean isSameConfObj(HiveConf hiveConf) {
     //taken from HiveMetaStoreClient
-    return this.conf == hiveConf;
+    return this.hiveConf == hiveConf;
   }
 
   @Override
@@ -1760,7 +1720,7 @@ public class AWSCatalogMetastoreClient implements IMetaStoreClient {
   @Override
   public void validatePartitionNameCharacters(List<String> part_vals) throws TException, MetaException {
     try {
-      String partitionValidationRegex = conf.getVar(HiveConf.ConfVars.METASTORE_PARTITION_NAME_WHITELIST_PATTERN);
+      String partitionValidationRegex = hiveConf.getVar(HiveConf.ConfVars.METASTORE_PARTITION_NAME_WHITELIST_PATTERN);
       Pattern partitionValidationPattern = Strings.isNullOrEmpty(partitionValidationRegex) ? null
             : Pattern.compile(partitionValidationRegex);
       MetaStoreUtils.validatePartitionNameCharacters(part_vals, partitionValidationPattern);

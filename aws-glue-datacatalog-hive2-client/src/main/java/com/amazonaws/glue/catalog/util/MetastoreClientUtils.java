@@ -1,25 +1,29 @@
 package com.amazonaws.glue.catalog.util;
 
-import com.amazonaws.glue.catalog.metastore.GlueMetastoreClientDelegate;
+import com.amazonaws.glue.catalog.metastore.DefaultAWSGlueMetastore;
 import com.amazonaws.glue.shims.AwsGlueHiveShims;
 import com.amazonaws.glue.shims.ShimsLoader;
 import com.google.common.collect.Maps;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
 public final class MetastoreClientUtils {
+
+  public static final String CATALOG_ID_CONF = "hive.metastore.glue.catalogid";
 
   private static final AwsGlueHiveShims hiveShims = ShimsLoader.getHiveShims();
 
@@ -51,7 +55,7 @@ public final class MetastoreClientUtils {
    * Taken from HiveMetaStore#create_table_core
    * https://github.com/apache/hive/blob/rel/release-2.3.0/metastore/src/java/org/apache/hadoop/hive/metastore/HiveMetaStore.java#L1370-L1383
    */
-  public static void validateTableObject(Table table, Configuration conf) throws InvalidObjectException {
+  public static void validateTableObject(Table table, HiveConf conf) throws InvalidObjectException {
     checkNotNull(table, "table cannot be null");
     checkNotNull(table.getSd(), "Table#StorageDescriptor cannot be null");
 
@@ -114,11 +118,31 @@ public final class MetastoreClientUtils {
     return table.getTableType() != null && EXTERNAL_TABLE.name().equalsIgnoreCase(table.getTableType());
   }
   
-  public static String getCatalogId(Configuration conf) {
-    if (StringUtils.isNotEmpty(conf.get(GlueMetastoreClientDelegate.CATALOG_ID_CONF))) {
-      return conf.get(GlueMetastoreClientDelegate.CATALOG_ID_CONF);
+  public static String getCatalogId(HiveConf conf) {
+    if (StringUtils.isNotEmpty(conf.get(CATALOG_ID_CONF))) {
+      return conf.get(CATALOG_ID_CONF);
     }
     // This case defaults to using the caller's account Id as Catalog Id.
     return null;
+  }
+
+  public static ConfMap getAwsGlueConf(HiveConf hiveConf) {
+    Properties props = hiveConf.getAllProperties();
+
+    Map<String, String> conf = new HashMap<>();
+
+    for (Map.Entry<Object, Object> next : props.entrySet()) {
+      String key = (String) next.getKey();
+      String value = (String) next.getValue();
+      conf.put(key, value);
+    }
+
+    String catalogId = getCatalogId(hiveConf);
+
+    if (catalogId != null) {
+      conf.put(DefaultAWSGlueMetastore.CATALOG_ID, catalogId);
+    }
+
+    return new ConfMap(conf);
   }
 }

@@ -1,7 +1,7 @@
 package com.amazonaws.glue.shims;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -36,17 +36,17 @@ final class AwsGlueHive2Shims implements AwsGlueHiveShims {
   }
 
   @Override
-  public boolean validateTableName(String name, Configuration conf) {
+  public boolean validateTableName(String name, HiveConf conf) {
     return MetaStoreUtils.validateName(name, conf);
   }
 
   @Override
   public boolean requireCalStats(
-      Configuration conf,
-      Partition oldPart,
-      Partition newPart,
-      Table tbl,
-      EnvironmentContext environmentContext) {
+          HiveConf conf,
+          Partition oldPart,
+          Partition newPart,
+          Table tbl,
+          EnvironmentContext environmentContext) {
     return MetaStoreUtils.requireCalStats(conf, oldPart, newPart, tbl, environmentContext);
   }
 

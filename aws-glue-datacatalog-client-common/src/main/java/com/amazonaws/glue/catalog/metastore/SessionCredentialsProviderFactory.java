@@ -3,9 +3,8 @@ package com.amazonaws.glue.catalog.metastore;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.glue.catalog.util.ConfMap;
 import com.amazonaws.internal.StaticCredentialsProvider;
-
-import org.apache.hadoop.hive.conf.HiveConf;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -16,7 +15,7 @@ public class SessionCredentialsProviderFactory implements AWSCredentialsProvider
   public final static String AWS_SESSION_TOKEN_CONF_VAR = "hive.aws_session_token";
   
   @Override
-  public AWSCredentialsProvider buildAWSCredentialsProvider(HiveConf hiveConf) {
+  public AWSCredentialsProvider buildAWSCredentialsProvider(ConfMap hiveConf) {
 
     checkArgument(hiveConf != null, "hiveConf cannot be null.");
     

@@ -12,9 +12,9 @@ public class AWSGlueDataCatalogHiveClientFactory implements HiveMetaStoreClientF
 
   @Override
   public IMetaStoreClient createMetaStoreClient(
-      HiveConf conf, HiveMetaHookLoader hookLoader,
-      boolean allowEmbedded,
-      ConcurrentHashMap<String, Long> concurrentHashMap
+          HiveConf conf, HiveMetaHookLoader hookLoader,
+          boolean allowEmbedded,
+          ConcurrentHashMap<String, Long> concurrentHashMap
   ) throws MetaException {
     AWSCatalogMetastoreClient client = new AWSCatalogMetastoreClient(conf, hookLoader);
     return client;

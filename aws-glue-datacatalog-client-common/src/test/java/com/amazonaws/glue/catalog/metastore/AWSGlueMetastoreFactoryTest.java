@@ -1,6 +1,6 @@
 package com.amazonaws.glue.catalog.metastore;
 
-import org.apache.hadoop.hive.conf.HiveConf;
+import com.amazonaws.glue.catalog.util.ConfMap;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -21,64 +21,64 @@ import static org.junit.Assert.assertTrue;
 public class AWSGlueMetastoreFactoryTest {
 
     private AWSGlueMetastoreFactory awsGlueMetastoreFactory;
-    private HiveConf hiveConf;
+    private ConfMap conf;
 
     @Before
     public void setUp() {
         awsGlueMetastoreFactory = new AWSGlueMetastoreFactory();
-        hiveConf = spy(new HiveConf());
+        conf = spy(new ConfMap());
 
         // these configs are needed for AWSGlueClient to get initialized
         System.setProperty(AWS_REGION, "");
         System.setProperty(AWS_GLUE_ENDPOINT, "");
-        when(hiveConf.get(AWS_GLUE_ENDPOINT)).thenReturn("endpoint");
-        when(hiveConf.get(AWS_REGION)).thenReturn("us-west-1");
+        when(conf.get(AWS_GLUE_ENDPOINT)).thenReturn("endpoint");
+        when(conf.get(AWS_REGION)).thenReturn("us-west-1");
 
         // these configs are needed for AWSGlueMetastoreCacheDecorator to get initialized
-        when(hiveConf.getInt(AWS_GLUE_DB_CACHE_SIZE, 0)).thenReturn(1);
-        when(hiveConf.getInt(AWS_GLUE_DB_CACHE_TTL_MINS, 0)).thenReturn(1);
-        when(hiveConf.getInt(AWS_GLUE_TABLE_CACHE_SIZE, 0)).thenReturn(1);
-        when(hiveConf.getInt(AWS_GLUE_TABLE_CACHE_TTL_MINS, 0)).thenReturn(1);
+        when(conf.getInt(AWS_GLUE_DB_CACHE_SIZE, 0)).thenReturn(1);
+        when(conf.getInt(AWS_GLUE_DB_CACHE_TTL_MINS, 0)).thenReturn(1);
+        when(conf.getInt(AWS_GLUE_TABLE_CACHE_SIZE, 0)).thenReturn(1);
+        when(conf.getInt(AWS_GLUE_TABLE_CACHE_TTL_MINS, 0)).thenReturn(1);
     }
 
     @Test
     public void testNewMetastoreWhenCacheDisabled() throws Exception {
-        when(hiveConf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(false);
-        when(hiveConf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(false);
+        when(conf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(false);
+        when(conf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(false);
         assertTrue(DefaultAWSGlueMetastore.class.equals(
-                awsGlueMetastoreFactory.newMetastore(hiveConf).getClass()));
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
+                awsGlueMetastoreFactory.newMetastore(conf).getClass()));
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
     }
 
     @Test
     public void testNewMetastoreWhenTableCacheEnabled() throws Exception {
-        when(hiveConf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(false);
-        when(hiveConf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(true);
+        when(conf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(false);
+        when(conf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(true);
         assertTrue(AWSGlueMetastoreCacheDecorator.class.equals(
-                awsGlueMetastoreFactory.newMetastore(hiveConf).getClass()));
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
+                awsGlueMetastoreFactory.newMetastore(conf).getClass()));
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
     }
 
     @Test
     public void testNewMetastoreWhenDBCacheEnabled() throws Exception {
-        when(hiveConf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(true);
-        when(hiveConf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(true);
+        when(conf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(true);
+        when(conf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(true);
         assertTrue(AWSGlueMetastoreCacheDecorator.class.equals(
-                awsGlueMetastoreFactory.newMetastore(hiveConf).getClass()));
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
+                awsGlueMetastoreFactory.newMetastore(conf).getClass()));
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
     }
 
     @Test
     public void testNewMetastoreWhenAllCacheEnabled() throws Exception {
-        when(hiveConf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(true);
-        when(hiveConf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(true);
+        when(conf.getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false)).thenReturn(true);
+        when(conf.getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false)).thenReturn(true);
         assertTrue(AWSGlueMetastoreCacheDecorator.class.equals(
-                awsGlueMetastoreFactory.newMetastore(hiveConf).getClass()));
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
-        verify(hiveConf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
+                awsGlueMetastoreFactory.newMetastore(conf).getClass()));
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_DB_CACHE_ENABLE, false);
+        verify(conf, atLeastOnce()).getBoolean(AWS_GLUE_TABLE_CACHE_ENABLE, false);
     }
 
 }

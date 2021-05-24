@@ -1,15 +1,15 @@
 package com.amazonaws.glue.catalog.metastore;
 
-import org.apache.hadoop.hive.conf.HiveConf;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.glue.catalog.util.ConfMap;
 
 public class DefaultAWSCredentialsProviderFactory implements
     AWSCredentialsProviderFactory {
 
   @Override
-  public AWSCredentialsProvider buildAWSCredentialsProvider(HiveConf hiveConf) {
+  public AWSCredentialsProvider buildAWSCredentialsProvider(ConfMap conf) {
     return new DefaultAWSCredentialsProviderChain();
   }
 

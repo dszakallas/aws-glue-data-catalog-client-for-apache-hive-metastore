@@ -10,7 +10,6 @@ import com.amazonaws.services.glue.model.Table;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UserDefinedFunction;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
-import org.apache.thrift.TException;
 
 import java.util.List;
 
@@ -42,6 +41,8 @@ public interface AWSGlueMetastore {
 
     List<Table> getTables(String dbname, String tablePattern);
 
+    List<Table> getTables(String dbname);
+
     void updateTable(String dbName, TableInput tableInput);
 
     void deleteTable(String dbName, String tableName);
@@ -52,7 +53,7 @@ public interface AWSGlueMetastore {
                                          List<PartitionValueList> partitionsToGet);
 
     List<Partition> getPartitions(String dbName, String tableName, String expression,
-                                  long max) throws TException;
+                                  long max);
 
     void updatePartition(String dbName, String tableName, List<String> partitionValues,
                          PartitionInput partitionInput);

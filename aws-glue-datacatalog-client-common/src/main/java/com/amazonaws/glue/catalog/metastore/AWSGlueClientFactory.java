@@ -3,6 +3,7 @@ package com.amazonaws.glue.catalog.metastore;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.glue.catalog.util.ConfMap;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.glue.AWSGlue;
@@ -10,9 +11,7 @@ import com.amazonaws.services.glue.AWSGlueClientBuilder;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.log4j.Logger;
 
@@ -32,15 +31,15 @@ public final class AWSGlueClientFactory implements GlueClientFactory {
 
   private static final Logger logger = Logger.getLogger(AWSGlueClientFactory.class);
 
-  private final HiveConf conf;
+  private final ConfMap conf;
 
-  public AWSGlueClientFactory(HiveConf conf) {
+  public AWSGlueClientFactory(ConfMap conf) {
     Preconditions.checkNotNull(conf, "HiveConf cannot be null");
     this.conf = conf;
   }
 
   @Override
-  public AWSGlue newClient() throws MetaException {
+  public AWSGlue newClient() {
     try {
       AWSGlueClientBuilder glueClientBuilder = AWSGlueClientBuilder.standard()
           .withCredentials(getAWSCredentialsProvider(conf));
@@ -70,30 +69,30 @@ public final class AWSGlueClientFactory implements GlueClientFactory {
     } catch (Exception e) {
       String message = "Unable to build AWSGlueClient: " + e;
       logger.error(message);
-      throw new MetaException(message);
+      throw e;
     }
   }
 
-  private AWSCredentialsProvider getAWSCredentialsProvider(HiveConf conf) {
+  private AWSCredentialsProvider getAWSCredentialsProvider(ConfMap conf) {
     Class<? extends AWSCredentialsProviderFactory> providerFactoryClass = conf
         .getClass(AWS_CATALOG_CREDENTIALS_PROVIDER_FACTORY_CLASS,
             DefaultAWSCredentialsProviderFactory.class).asSubclass(
             AWSCredentialsProviderFactory.class);
     AWSCredentialsProviderFactory provider = ReflectionUtils.newInstance(
-        providerFactoryClass, conf);
+        providerFactoryClass, null);
     return provider.buildAWSCredentialsProvider(conf);
   }
 
-  private ClientConfiguration buildClientConfiguration(HiveConf hiveConf) {
+  private ClientConfiguration buildClientConfiguration(ConfMap conf) {
     ClientConfiguration clientConfiguration = new ClientConfiguration()
-        .withMaxErrorRetry(hiveConf.getInt(AWS_GLUE_MAX_RETRY, DEFAULT_MAX_RETRY))
-        .withMaxConnections(hiveConf.getInt(AWS_GLUE_MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS))
-        .withConnectionTimeout(hiveConf.getInt(AWS_GLUE_CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT))
-        .withSocketTimeout(hiveConf.getInt(AWS_GLUE_SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT));
+        .withMaxErrorRetry(conf.getInt(AWS_GLUE_MAX_RETRY, DEFAULT_MAX_RETRY))
+        .withMaxConnections(conf.getInt(AWS_GLUE_MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS))
+        .withConnectionTimeout(conf.getInt(AWS_GLUE_CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT))
+        .withSocketTimeout(conf.getInt(AWS_GLUE_SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT));
     return clientConfiguration;
   }
 
-  private static String getProperty(String propertyName, HiveConf conf) {
+  private static String getProperty(String propertyName, ConfMap conf) {
     return Strings.isNullOrEmpty(System.getProperty(propertyName)) ?
         conf.get(propertyName) : System.getProperty(propertyName);
   }

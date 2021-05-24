@@ -1,6 +1,5 @@
-package com.amazonaws.glue.catalog.convertors;
+package com.amazonaws.glue.catalog.converters;
 
-import com.amazonaws.glue.catalog.converters.ConverterUtils;
 import com.amazonaws.glue.catalog.util.TestObjects;
 import com.amazonaws.services.glue.model.Table;
 

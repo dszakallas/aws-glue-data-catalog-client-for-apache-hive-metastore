@@ -12,15 +12,14 @@ import com.amazonaws.retry.RetryPolicy;
 import com.amazonaws.services.glue.AWSGlue;
 import com.amazonaws.services.glue.AWSGlueClientBuilder;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.commons.lang.StringUtils;
 
 public final class GlueTestClientFactory implements GlueClientFactory {
 
   private static final int SC_GATEWAY_TIMEOUT = 504;
 
   @Override
-  public AWSGlue newClient() throws MetaException {
+  public AWSGlue newClient() {
     AWSGlueClientBuilder glueClientBuilder = AWSGlueClientBuilder.standard()
         .withClientConfiguration(createGatewayTimeoutRetryableConfiguration())
         .withCredentials(new DefaultAWSCredentialsProviderChain());

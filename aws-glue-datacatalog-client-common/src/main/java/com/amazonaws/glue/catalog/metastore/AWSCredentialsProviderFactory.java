@@ -1,10 +1,10 @@
 package com.amazonaws.glue.catalog.metastore;
 
-import org.apache.hadoop.hive.conf.HiveConf;
+import com.amazonaws.glue.catalog.util.ConfMap;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 
 public interface AWSCredentialsProviderFactory {
 
-  AWSCredentialsProvider buildAWSCredentialsProvider(HiveConf hiveConf);
+  AWSCredentialsProvider buildAWSCredentialsProvider(ConfMap conf);
 }

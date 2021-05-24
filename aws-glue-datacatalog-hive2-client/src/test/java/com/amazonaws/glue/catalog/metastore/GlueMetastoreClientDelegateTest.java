@@ -2,6 +2,8 @@ package com.amazonaws.glue.catalog.metastore;
 
 import com.amazonaws.glue.catalog.converters.CatalogToHiveConverter;
 import com.amazonaws.glue.catalog.converters.GlueInputConverter;
+import com.amazonaws.glue.catalog.util.ConfMap;
+import com.amazonaws.glue.catalog.util.MetastoreClientUtils;
 import com.amazonaws.glue.catalog.util.TestObjects;
 import com.amazonaws.glue.catalog.util.TestExecutorServiceFactory;
 import com.amazonaws.services.glue.AWSGlue;
@@ -117,7 +119,8 @@ public class GlueMetastoreClientDelegateTest {
   private GlueMetastoreClientDelegate metastoreClientDelegate;
   private GlueMetastoreClientDelegate metastoreClientDelegateCatalogId;
   
-  private HiveConf conf;
+  private HiveConf hiveConf;
+  private ConfMap conf;
   HiveConf hiveConfCatalogId; // conf with CatalogId
   private AWSGlue glueClient;
   private Warehouse wh;
@@ -131,15 +134,17 @@ public class GlueMetastoreClientDelegateTest {
 
   @Before
   public void setup() throws Exception {
-    conf = new HiveConf();
+    hiveConf = new HiveConf();
     glueClient = mock(AWSGlue.class);
     wh = mock(Warehouse.class);
-    metastoreClientDelegate = new GlueMetastoreClientDelegate(conf, new DefaultAWSGlueMetastore(conf, glueClient), wh);
+    conf = MetastoreClientUtils.getAwsGlueConf(hiveConf);
+    metastoreClientDelegate = new GlueMetastoreClientDelegate(hiveConf, new DefaultAWSGlueMetastore(conf, glueClient), wh);
     
     // Create a client delegate with CatalogId
     hiveConfCatalogId = new HiveConf();
-    hiveConfCatalogId.set(GlueMetastoreClientDelegate.CATALOG_ID_CONF, CATALOG_ID);
-    metastoreClientDelegateCatalogId = new GlueMetastoreClientDelegate(hiveConfCatalogId, new DefaultAWSGlueMetastore(hiveConfCatalogId, glueClient), wh);
+    hiveConfCatalogId.set(MetastoreClientUtils.CATALOG_ID_CONF, CATALOG_ID);
+    ConfMap confCatalogId = MetastoreClientUtils.getAwsGlueConf(hiveConfCatalogId);
+    metastoreClientDelegateCatalogId = new GlueMetastoreClientDelegate(hiveConfCatalogId, new DefaultAWSGlueMetastore(confCatalogId, glueClient), wh);
 
     testDb = getTestDatabase();
     testTbl= getTestTable(testDb.getName());
@@ -158,10 +163,11 @@ public class GlueMetastoreClientDelegateTest {
   public void testExecutorService() throws Exception {
     Object defaultExecutorService = new DefaultExecutorServiceFactory().getExecutorService(conf);
     assertEquals("Default executor service should be used", metastoreClientDelegate.getExecutorService(), defaultExecutorService);
-    HiveConf customConf = new HiveConf();
-    customConf.set(GlueMetastoreClientDelegate.CATALOG_ID_CONF, CATALOG_ID);
-    customConf.setClass(GlueMetastoreClientDelegate.CUSTOM_EXECUTOR_FACTORY_CONF, TestExecutorServiceFactory.class, ExecutorServiceFactory.class);
-    GlueMetastoreClientDelegate customDelegate = new GlueMetastoreClientDelegate(customConf, mock(AWSGlueMetastore.class), mock(Warehouse.class));
+    HiveConf customHiveConf = new HiveConf();
+    customHiveConf.set(MetastoreClientUtils.CATALOG_ID_CONF, CATALOG_ID);
+    customHiveConf.setClass(GlueMetastoreClientDelegate.CUSTOM_EXECUTOR_FACTORY_CONF, TestExecutorServiceFactory.class, ExecutorServiceFactory.class);
+    ConfMap customConf = MetastoreClientUtils.getAwsGlueConf(customHiveConf);
+    GlueMetastoreClientDelegate customDelegate = new GlueMetastoreClientDelegate(customHiveConf, mock(AWSGlueMetastore.class), mock(Warehouse.class));
     Object customExecutorService = new TestExecutorServiceFactory().getExecutorService(customConf);
 
     assertEquals("Custom executor service should be used", customDelegate.getExecutorService(), customExecutorService);
@@ -814,9 +820,11 @@ public class GlueMetastoreClientDelegateTest {
   @Test
   public void testGetPartitionsParallel() throws Exception {
     final int numSegments = 2;
-    HiveConf conf = new HiveConf(this.conf);
-    conf.setInt(GlueMetastoreClientDelegate.NUM_PARTITION_SEGMENTS_CONF, numSegments);
-    GlueMetastoreClientDelegate delegate = new GlueMetastoreClientDelegate(conf, new DefaultAWSGlueMetastore(conf, glueClient), wh);
+
+    HiveConf modHiveConf = new HiveConf(this.hiveConf);
+    modHiveConf.setInt(GlueMetastoreClientDelegate.NUM_PARTITION_SEGMENTS_CONF, numSegments);
+    ConfMap modConf = MetastoreClientUtils.getAwsGlueConf(modHiveConf);
+    GlueMetastoreClientDelegate delegate = new GlueMetastoreClientDelegate(modHiveConf, new DefaultAWSGlueMetastore(modConf, glueClient), wh);
 
     final Set<List<String>> expectedValues = Sets.newHashSet();
     final List<Partition> partitions = Lists.newArrayList();
@@ -903,10 +911,11 @@ public class GlueMetastoreClientDelegateTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testTooHighGluePartitionSegments() throws MetaException {
-    HiveConf conf = new HiveConf(this.conf);
-    conf.setInt(GlueMetastoreClientDelegate.NUM_PARTITION_SEGMENTS_CONF,
+    HiveConf modHiveConf = new HiveConf(this.hiveConf);
+    modHiveConf.setInt(GlueMetastoreClientDelegate.NUM_PARTITION_SEGMENTS_CONF,
             DefaultAWSGlueMetastore.MAX_NUM_PARTITION_SEGMENTS + 1);
-    GlueMetastoreClientDelegate delegate = new GlueMetastoreClientDelegate(conf, new DefaultAWSGlueMetastore(conf, glueClient), wh);
+    ConfMap modConf = MetastoreClientUtils.getAwsGlueConf(modHiveConf);
+    GlueMetastoreClientDelegate delegate = new GlueMetastoreClientDelegate(modHiveConf, new DefaultAWSGlueMetastore(modConf, glueClient), wh);
   }
 
   @Test
@@ -1538,9 +1547,9 @@ public class GlueMetastoreClientDelegateTest {
 
   private void assertDaemonThreadPools() {
     String threadNameCreatePrefix =
-            GlueMetastoreClientDelegate.GLUE_METASTORE_DELEGATE_THREADPOOL_NAME_FORMAT.substring(
+            DefaultExecutorServiceFactory.GLUE_METASTORE_DELEGATE_THREADPOOL_NAME_FORMAT.substring(
                     0,
-                    GlueMetastoreClientDelegate.GLUE_METASTORE_DELEGATE_THREADPOOL_NAME_FORMAT.indexOf('%'));
+                    DefaultExecutorServiceFactory.GLUE_METASTORE_DELEGATE_THREADPOOL_NAME_FORMAT.indexOf('%'));
     for (Thread thread : Thread.getAllStackTraces().keySet()) {
       String threadName = thread.getName();
       if (threadName != null && threadName.startsWith(threadNameCreatePrefix)) {

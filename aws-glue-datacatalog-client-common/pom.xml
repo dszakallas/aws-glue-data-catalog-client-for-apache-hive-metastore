@@ -12,18 +12,6 @@
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-metastore</artifactId>
-            <version>${hive2.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-exec</artifactId>
-            <version>${hive2.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-glue</artifactId>
             <version>${aws.sdk.version}</version>
